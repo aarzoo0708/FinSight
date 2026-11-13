@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, ArrowDownToLine, Check, ChevronRight, Clipboard, Clock3, FileText, Search, X } from 'lucide-react'
 import Sidebar from '../components/Sidebar.jsx'
 import RiskBadge from '../components/RiskBadge.jsx'
 import StatCard from '../components/StatCard.jsx'
-import { demoBusiness, receivablesDemo } from '../data/demoData.js'
+import { invoiceProjections, receivablesDemo } from '../data/demoData.js'
 import { formatINR } from '../utils/formatters.js'
-import { formatInvoiceDate, getOutstandingSummary, parseLocalDate, predictInvoice } from '../utils/receivables.js'
+import { formatInvoiceDate, getOutstandingSummary, parseLocalDate } from '../utils/receivables.js'
 
 function Receivables() {
   const [query, setQuery] = useState('')
@@ -21,9 +21,8 @@ function Receivables() {
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [selectedId])
-  const asOf = useMemo(() => parseLocalDate(demoBusiness.asOf.slice(0, 10)), [])
-  const summary = getOutstandingSummary(receivablesDemo.invoices, asOf)
-  const invoices = useMemo(() => receivablesDemo.invoices.map((invoice) => ({ ...invoice, prediction: predictInvoice(invoice, asOf) })), [asOf])
+  const summary = getOutstandingSummary(invoiceProjections)
+  const invoices = invoiceProjections
   const filteredInvoices = invoices.filter(({ customer, id, prediction }) => {
     const matchesQuery = `${customer} ${id}`.toLowerCase().includes(query.trim().toLowerCase())
     return matchesQuery && (riskFilter === 'all' || prediction.risk === riskFilter)
@@ -81,20 +80,21 @@ function Receivables() {
 
             <div className="invoice-table-scroll">
               <table className="invoice-table">
-                <thead><tr><th>Customer</th><th>Invoice ID</th><th>Amount</th><th>Expected payment</th><th>Predicted status</th><th>Risk level</th><th>Action</th></tr></thead>
+                <thead><tr><th>Customer</th><th>Invoice ID</th><th>Amount</th><th>Expected payment</th><th>Predicted delay</th><th>Predicted status</th><th>Risk level</th><th>Action</th></tr></thead>
                 <tbody>
                   {filteredInvoices.map((invoice) => (
-                    <tr className="invoice-row" key={invoice.id} onClick={() => { setSelectedId(invoice.id); setReminder(''); setCopyStatus('') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(invoice.id); setReminder(''); setCopyStatus('') } }} tabIndex={0} aria-label={`View details for ${invoice.customer}, ${invoice.id}`}>
+                    <tr className={`invoice-row${invoice.prediction.risk === 'high' ? ' invoice-row-high-risk' : ''}`} key={invoice.id} onClick={() => { setSelectedId(invoice.id); setReminder(''); setCopyStatus('') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(invoice.id); setReminder(''); setCopyStatus('') } }} tabIndex={0} aria-label={`View details for ${invoice.customer}, ${invoice.id}`}>
                       <td className="customer-cell"><span className={`customer-initial ${invoice.prediction.risk}`}>{invoice.customer.slice(0, 1)}</span><strong>{invoice.customer}</strong></td>
                       <td className="invoice-id-cell">{invoice.id}</td>
                       <td className="amount-cell">{formatINR(invoice.amount)}</td>
                       <td className="date-cell">{formatInvoiceDate(invoice.prediction.expectedDate)}</td>
+                      <td className="delay-cell">{invoice.prediction.predictedDelayDays === 0 ? 'On terms' : `${invoice.prediction.predictedDelayDays} days late`}</td>
                       <td><span className={`prediction-status status-${invoice.prediction.risk}${invoice.prediction.isOverdue ? ' status-overdue' : ''}`}>{invoice.prediction.status}</span></td>
                       <td><RiskBadge kind={invoice.prediction.risk} /></td>
                       <td><button className="row-action" type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(invoice.id); setReminder(''); setCopyStatus('') }}>Details <ChevronRight size={14} /></button></td>
                     </tr>
                   ))}
-                  {!filteredInvoices.length && <tr><td className="empty-invoices" colSpan="7">No invoices match those filters. Try a different search or risk level.</td></tr>}
+                  {!filteredInvoices.length && <tr><td className="empty-invoices" colSpan="8">No invoices match those filters. Try a different search or risk level.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -113,12 +113,12 @@ function Receivables() {
             <div className="detail-status-row"><RiskBadge kind={selectedInvoice.prediction.risk} /><span className={`prediction-status status-${selectedInvoice.prediction.risk}${selectedInvoice.prediction.isOverdue ? ' status-overdue' : ''}`}>{selectedInvoice.prediction.status}</span></div>
             <div className="detail-amount-block"><span>INVOICE AMOUNT</span><strong>{formatINR(selectedInvoice.amount)}</strong><small>Due {formatInvoiceDate(parseLocalDate(selectedInvoice.dueDate))}</small></div>
             <div className="detail-facts">
+              <div className="predicted-delay-fact"><span>Predicted delay</span><strong>{selectedInvoice.prediction.predictedDelayDays === 0 ? 'On agreed terms' : `${selectedInvoice.prediction.predictedDelayDays} days after due date`}</strong><small>Estimated payment: {formatInvoiceDate(selectedInvoice.prediction.expectedDate)}</small></div>
               <div><span>Customer payment history</span><strong>{selectedInvoice.paymentHistory.paidLate} late of {selectedInvoice.paymentHistory.invoicesPaid} invoices</strong><small>Average delay {selectedInvoice.paymentHistory.averageDaysLate} days</small></div>
-              <div><span>Predicted delay</span><strong>{selectedInvoice.prediction.predictedDelayDays === 0 ? 'On agreed terms' : `${selectedInvoice.prediction.predictedDelayDays} days`}</strong></div>
               <div><span>Estimated payment date</span><strong>{formatInvoiceDate(selectedInvoice.prediction.expectedDate)}</strong></div>
             </div>
             <div className={`risk-explanation explanation-${selectedInvoice.prediction.risk}`}><span className="section-kicker">WHY THIS RISK LEVEL</span><p>{selectedInvoice.prediction.riskExplanation}</p></div>
-            <p className="model-explanation">Prototype rule: after at least 3 recorded payments, high risk is set when 60% or more were late, or average delay was 12+ days. Medium risk starts at a 30% late rate or 5+ average delay days.</p>
+            <p className="model-explanation">Prototype rule: high risk requires at least 3 recorded payments and a late-payment rate of {Math.round(receivablesDemo.predictionModel.highLateRate * 100)}% or more, or an average delay of {receivablesDemo.predictionModel.highAverageDelayDays}+ days. Medium risk starts at {Math.round(receivablesDemo.predictionModel.mediumLateRate * 100)}% late or {receivablesDemo.predictionModel.mediumAverageDelayDays}+ average delay days.</p>
             <div className="detail-actions">
               <button type="button" className={`followup-button${followedUp[selectedInvoice.id] ? ' is-followed' : ''}`} onClick={markFollowedUp}>{followedUp[selectedInvoice.id] ? <><Check size={15} /> Follow-up recorded</> : <>Mark as followed up</>}</button>
               <button type="button" className="reminder-button" onClick={generateReminder}>Generate reminder</button>

@@ -14,7 +14,7 @@ export function formatInvoiceDate(date) {
 }
 
 export function getOutstandingSummary(invoices, asOf) {
-  const predictions = invoices.map((invoice) => ({ prediction: predictInvoice(invoice, asOf) }))
+  const predictions = invoices.map((invoice) => ({ prediction: invoice.prediction ?? predictInvoice(invoice, asOf) }))
   return {
     totalOutstanding: invoices.reduce((total, invoice) => total + invoice.amount, 0),
     highRiskCount: predictions.filter(({ prediction }) => prediction.risk === 'high').length,

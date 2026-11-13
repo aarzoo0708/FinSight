@@ -13,7 +13,7 @@ function Overview() {
   const [range, setRange] = useState(30)
   const rangeCashFlow = useMemo(() => ({ ...cashFlowDemo, horizonDays: range }), [range])
   const baseline = useMemo(() => simulateCashFlow(rangeCashFlow, {}, new Date(demoBusiness.asOf)), [rangeCashFlow])
-  const delayedLargestPayment = useMemo(() => simulateCashFlow(rangeCashFlow, { delayLargestPayment: true }, new Date(demoBusiness.asOf)), [rangeCashFlow])
+  const delayedAtRiskPayment = useMemo(() => simulateCashFlow(rangeCashFlow, { delayAtRiskPayment: true }, new Date(demoBusiness.asOf)), [rangeCashFlow])
   const forecast = baseline.forecast
   const visibleForecast = forecast.slice(0, range + 1).map((point) => ({
     ...point,
@@ -22,7 +22,7 @@ function Overview() {
   }))
   const closingBalance = baseline.closingBalance
   const movementTotals = summarizeExpectedMovements(cashFlowDemo, range)
-  const largestPayment = baseline.largestPayment
+  const delayedPayment = baseline.delayedPayment
   return (
     <div className="app-layout" id="overview">
       <Sidebar activePage="overview" />
@@ -46,7 +46,12 @@ function Overview() {
             <section className="outlook-panel" aria-labelledby="outlook-title">
               <div className="panel-heading"><div><span className="section-kicker">THE READ-OUT</span><h2 id="outlook-title">Financial outlook</h2></div><span className="outlook-mark">01</span></div>
               <div className="outlook-rule" />
-              <p>Scheduled receipts keep the {range}-day forecast above zero, but cash dips to {formatINR(baseline.minimumBalance)} on day {baseline.minimumBalanceDay}. A 15-day delay to {largestPayment.label.split(' · ')[0]} would {delayedLargestPayment.shortfallDay === null ? 'tighten that buffer further' : `create a shortfall around day ${delayedLargestPayment.shortfallDay}`}.</p>
+              <div className="minimum-balance-callout" aria-label={`Lowest projected balance ${formatINR(baseline.minimumBalance)} on day ${baseline.minimumBalanceDay}`}>
+                <span>LOWEST PROJECTED BALANCE</span>
+                <strong>{formatINR(baseline.minimumBalance)}</strong>
+                <small>Day {baseline.minimumBalanceDay} of the {range}-day forecast</small>
+              </div>
+              <p>The baseline reaches {formatINR(baseline.minimumBalance)} on day {baseline.minimumBalanceDay}. As a hypothetical timing stress test—not a new invoice-risk prediction—a 15-day delay to {delayedPayment?.label.split(' · ')[0]} (invoice payment risk: {delayedPayment?.risk ?? 'unrated'}) would {delayedAtRiskPayment.shortfallDay === null ? 'tighten that buffer further' : `create a shortfall around day ${delayedAtRiskPayment.shortfallDay}`}.</p>
               <div className="outlook-footnote"><span className="outlook-status" /><span>Baseline closes at <strong>{formatINR(closingBalance)}</strong> in {range} days.</span></div>
             </section>
 
@@ -54,9 +59,6 @@ function Overview() {
               <div className="panel-heading"><div><span className="section-kicker">KEEP AN EYE ON</span><h2 id="risks-title">Upcoming risks</h2></div><span className="risk-count">{cashFlowDemo.risks.length} TO WATCH</span></div>
               <div className="risk-list">
                 {cashFlowDemo.risks.map((risk) => {
-                  const event = cashFlowDemo.events[risk.eventIndex]
-                  const dueDate = new Date(demoBusiness.asOf)
-                  dueDate.setDate(dueDate.getDate() + risk.dueInDays)
                   return (
                     <article className="risk-item" id={risk.id} key={risk.id}>
                       <div className="risk-item-main">
@@ -64,18 +66,18 @@ function Overview() {
                         <strong>{risk.title}</strong>
                         <small>{risk.detail}</small>
                       </div>
-                      <div className="risk-item-meta"><strong>{formatINR(event.amount)}</strong><span><Clock3 size={12} /> {formatShortDate(dueDate)}</span></div>
+                      <div className="risk-item-meta"><strong>{formatINR(risk.amount)}</strong><span><Clock3 size={12} /> {formatShortDate(risk.expectedDate)}</span></div>
                     </article>
                   )
                 })}
               </div>
-              <a className="text-action" href="#invoice-1052">Review risky invoices <ChevronRight size={15} /></a>
+              <a className="text-action" href="#receivables">Review risky invoices <ChevronRight size={15} /></a>
             </section>
           </div>
 
           <div className="quick-action-row">
             <span className="quick-action-label">NEXT STEPS</span>
-            <button className="quick-action" type="button" onClick={() => document.getElementById('invoice-1052')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>Review risky invoices <ChevronRight size={15} /></button>
+            <a className="quick-action" href="#receivables">Review risky invoices <ChevronRight size={15} /></a>
             <a className="quick-action" href="#scenario-lab">Explore scenarios <ChevronRight size={15} /></a>
             <span className="quick-action-note">Sample business data for demonstration</span>
           </div>

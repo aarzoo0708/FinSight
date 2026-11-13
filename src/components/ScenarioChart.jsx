@@ -13,7 +13,7 @@ function ScenarioTooltip({ active, payload }) {
   )
 }
 
-function ScenarioChart({ baseline, scenario }) {
+function ScenarioChart({ baseline, scenario, isScenarioSelected }) {
   const data = baseline.forecast.map((point, index) => ({
     day: point.day,
     date: point.date,
@@ -44,7 +44,19 @@ function ScenarioChart({ baseline, scenario }) {
             <ReferenceLine y={0} stroke="#bd9271" strokeWidth={1.2} />
             <Tooltip content={<ScenarioTooltip />} cursor={{ stroke: '#bdc9bc', strokeDasharray: '3 4' }} />
             <Line type="stepAfter" dataKey="baselineBalance" name="Baseline" stroke="#789783" strokeWidth={2.2} dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#668571', strokeWidth: 2 }} isAnimationActive={false} />
-            <Line type="stepAfter" dataKey="scenarioBalance" name="Your scenario" stroke="#b77b63" strokeWidth={2.2} strokeDasharray="5 4" dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#a96e56', strokeWidth: 2 }} isAnimationActive={false} />
+            <Line
+              type="stepAfter"
+              dataKey="scenarioBalance"
+              name="Your scenario"
+              stroke={isScenarioSelected ? '#a96e56' : '#bd9a86'}
+              strokeWidth={isScenarioSelected ? 2.8 : 2.2}
+              strokeDasharray={isScenarioSelected ? '7 4' : '5 4'}
+              dot={({ cx, cy, payload }) => payload.day === scenario.minimumBalanceDay
+                ? <g aria-label={`Lowest projected balance ${formatINR(scenario.minimumBalance)} on ${formatShortDate(scenario.forecast[scenario.minimumBalanceDay].date)}`}><circle cx={cx} cy={cy} r={8} fill="#fff" stroke={isScenarioSelected ? '#a96e56' : '#789783'} strokeWidth={2} /><circle cx={cx} cy={cy} r={3} fill={isScenarioSelected ? '#a96e56' : '#789783'} /></g>
+                : null}
+              activeDot={{ r: 4, fill: '#fff', stroke: '#a96e56', strokeWidth: 2 }}
+              isAnimationActive={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

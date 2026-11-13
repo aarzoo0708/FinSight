@@ -8,14 +8,20 @@ export function summarizeExpectedMovements(cashFlow, horizonDays = cashFlow.hori
 }
 
 export function simulateCashFlow(cashFlow, assumptions = {}, startDate = new Date()) {
-  const { delayLargestPayment = false, operatingExpenseIncrease = 0, postponePlannedPurchase = false } = assumptions
-  const largestPaymentIndex = cashFlow.events.reduce((largestIndex, event, index, events) => (
-    event.type === 'inflow' && (largestIndex < 0 || event.amount > events[largestIndex].amount) ? index : largestIndex
+  const { delayAtRiskPayment = false, operatingExpenseIncrease = 0, postponePlannedPurchase = false } = assumptions
+  const inflowIndexes = cashFlow.events.reduce((indexes, event, index) => {
+    if (event.type === 'inflow' && event.day <= cashFlow.horizonDays) indexes.push(index)
+    return indexes
+  }, [])
+  const highRiskIndexes = inflowIndexes.filter((index) => cashFlow.events[index].risk === 'high')
+  const candidateIndexes = highRiskIndexes.length ? highRiskIndexes : inflowIndexes
+  const delayedPaymentIndex = candidateIndexes.reduce((selectedIndex, index) => (
+    selectedIndex < 0 || cashFlow.events[index].amount > cashFlow.events[selectedIndex].amount ? index : selectedIndex
   ), -1)
 
   const transactions = cashFlow.events.map((event, index) => {
     const transaction = { ...event }
-    if (delayLargestPayment && index === largestPaymentIndex) transaction.day += 15
+    if (delayAtRiskPayment && index === delayedPaymentIndex) transaction.day += 15
     if (postponePlannedPurchase && transaction.category === 'planned-purchase') transaction.day = cashFlow.horizonDays + 1
     if (operatingExpenseIncrease && transaction.type === 'outflow' && transaction.category === 'operating') {
       transaction.amount = Math.round(transaction.amount * (1 + operatingExpenseIncrease / 100))
@@ -47,7 +53,7 @@ export function simulateCashFlow(cashFlow, assumptions = {}, startDate = new Dat
     minimumBalance: minimumPoint.balance,
     minimumBalanceDay: minimumPoint.day,
     shortfallDay: shortagePoint?.day ?? null,
-    largestPayment: largestPaymentIndex >= 0 ? cashFlow.events[largestPaymentIndex] : null,
+    delayedPayment: delayedPaymentIndex >= 0 ? cashFlow.events[delayedPaymentIndex] : null,
     postponedPurchase: transactions.find((transaction) => transaction.category === 'planned-purchase') ?? null,
     operatingExpenseIncreaseAmount: transactions.reduce((total, transaction, index) => {
       const original = cashFlow.events[index]

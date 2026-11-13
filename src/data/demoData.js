@@ -43,8 +43,13 @@ export const receivablesDemo = {
 
 const asOfDate = parseSampleDate(demoBusiness.asOf.slice(0, 10))
 const forecastHorizonDays = 30
-const expectedInvoiceEvents = receivablesDemo.invoices.flatMap((invoice) => {
-  const prediction = estimatePayment(invoice, receivablesDemo.predictionModel, asOfDate)
+export const invoiceProjections = receivablesDemo.invoices.map((invoice) => ({
+  ...invoice,
+  prediction: estimatePayment(invoice, receivablesDemo.predictionModel, asOfDate),
+}))
+
+const expectedInvoiceEvents = invoiceProjections.flatMap((invoice) => {
+  const { prediction } = invoice
   const day = daysBetween(asOfDate, prediction.expectedDate)
   if (day < 1 || day > forecastHorizonDays) return []
   return [{
@@ -54,6 +59,7 @@ const expectedInvoiceEvents = receivablesDemo.invoices.flatMap((invoice) => {
     label: `${invoice.customer} · invoice ${invoice.id.replace('INV-', '')}`,
     invoiceId: invoice.id,
     risk: prediction.risk,
+    expectedDate: prediction.expectedDate,
   }]
 })
 
@@ -66,24 +72,22 @@ const operatingEvents = [
 ]
 
 const cashFlowEvents = [...expectedInvoiceEvents, ...operatingEvents].sort((left, right) => left.day - right.day)
-const highRiskInvoiceEvents = expectedInvoiceEvents.filter((event) => event.risk === 'high')
-const plannedPurchaseEventIndex = cashFlowEvents.findIndex((event) => event.category === 'planned-purchase')
 
 export const cashFlowDemo = {
   horizonDays: forecastHorizonDays,
   currentCash: 50000,
   events: cashFlowEvents,
   risks: [
-    ...highRiskInvoiceEvents.map((event) => {
-      const invoice = receivablesDemo.invoices.find((item) => item.id === event.invoiceId)
+    ...invoiceProjections.filter(({ prediction }) => prediction.risk === 'high').map((invoice) => {
+      const { prediction } = invoice
       return {
         id: `invoice-${invoice.id.replace('INV-', '').toLowerCase()}`,
+        invoiceId: invoice.id,
         kind: 'high',
         title: `${invoice.customer} · Invoice ${invoice.id.replace('INV-', '')}`,
         amount: invoice.amount,
-        dueInDays: daysBetween(asOfDate, parseSampleDate(invoice.dueDate)),
-        detail: 'Payment history suggests this may arrive late.',
-        eventIndex: cashFlowEvents.findIndex((item) => item.invoiceId === invoice.id),
+        expectedDate: prediction.expectedDate,
+        detail: prediction.riskExplanation,
       }
     }),
     {
@@ -91,9 +95,8 @@ export const cashFlowDemo = {
       kind: 'upcoming',
       title: 'Ceramic kiln instalment',
       amount: operatingEvents.find((event) => event.category === 'planned-purchase').amount,
-      dueInDays: operatingEvents.find((event) => event.category === 'planned-purchase').day,
+      expectedDate: new Date(asOfDate.getFullYear(), asOfDate.getMonth(), asOfDate.getDate() + operatingEvents.find((event) => event.category === 'planned-purchase').day),
       detail: 'A larger than usual expense is scheduled.',
-      eventIndex: plannedPurchaseEventIndex,
     },
   ],
 }

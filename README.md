@@ -22,6 +22,34 @@ The experience is organized around three pillars:
 - **Simulate** – See how selected timing and expense assumptions change the projected cash balance.
 - **Recommend** – Surface risk cues and scenario read-outs to help focus attention on possible next steps.
 
+## Application Preview
+
+Screenshots below show the current FinSight demo experience.
+
+### Financial Overview
+
+Review cash balances, expected movements, the cash-flow forecast, and upcoming risks at a glance.
+
+<p align="center">
+  <img src="screenshots/overview.png.png" alt="FinSight financial overview dashboard" width="900">
+</p>
+
+### Receivables Intelligence
+
+Search and filter open invoices, inspect payment-risk estimates, and review customer payment history.
+
+<p align="center">
+  <img src="screenshots/receivables.png.png" alt="FinSight receivables intelligence and invoice risk view" width="900">
+</p>
+
+### Scenario Lab
+
+Adjust cash-flow assumptions and compare the resulting projection with the baseline.
+
+<p align="center">
+  <img src="screenshots/scenario-lab.png.png" alt="FinSight Scenario Lab baseline and scenario comparison" width="900">
+</p>
+
 ## Problem Statement
 
 MSMEs can face several connected financial pressures:

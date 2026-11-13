@@ -1,0 +1,58 @@
+:root {
+  color-scheme: light;
+  /* Palette */
+  --color-canvas: #f7f8f3;
+  --color-surface: #ffffff;
+  --color-sage: #ddebE1;
+  --color-seaglass: #c5ddd3;
+  --color-peach: #f5dfd0;
+  --color-butter: #f3e9bd;
+  --color-ink: #34443c;
+  --color-muted: #78847c;
+  --color-faint: #a2aaa3;
+  --color-line: #e5e8df;
+  --color-line-strong: #d8ddd3;
+  --color-forest: #587665;
+  --color-forest-deep: #435e4f;
+  /* Typography */
+  --font-display: "Iowan Old Style", "Baskerville", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-ui: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  --text-xs: 0.68rem;
+  --text-sm: 0.82rem;
+  --text-base: 0.94rem;
+  --text-lg: 1.12rem;
+  --text-title: clamp(2.4rem, 4.2vw, 3.65rem);
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  /* Borders and shadows */
+  --border-subtle: 1px solid var(--color-line);
+  --border-defined: 1px solid var(--color-line-strong);
+  --radius-sm: 5px;
+  --radius-md: 9px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 5px 18px rgb(59 72 61 / 4%);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  font-weight: 400;
+}
+* { box-sizing: border-box; }
+body { min-width: 320px; min-height: 100vh; margin: 0; }
+button, input, textarea, select { font: inherit; }
+button { color: inherit; }
+a { color: inherit; text-decoration: none; }
+::selection { color: var(--color-forest-deep); background: var(--color-sage); }

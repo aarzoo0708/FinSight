@@ -3,7 +3,7 @@ import { AlertCircle, ArrowDownToLine, Check, ChevronRight, Clipboard, Clock3, F
 import Sidebar from '../components/Sidebar.jsx'
 import RiskBadge from '../components/RiskBadge.jsx'
 import StatCard from '../components/StatCard.jsx'
-import { invoiceProjections, receivablesDemo } from '../data/demoData.js'
+import { demoBusiness, invoiceProjections, receivablesDemo } from '../data/demoData.js'
 import { formatINR } from '../utils/formatters.js'
 import { formatInvoiceDate, getOutstandingSummary, parseLocalDate } from '../utils/receivables.js'
 

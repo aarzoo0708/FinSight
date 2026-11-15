@@ -2,11 +2,12 @@
   "name": "finsight",
   "private": true,
   "version": "0.1.0",
-  "description": "FinSight – AI-Powered Financial Intelligence & Digital Twin for MSMEs",
+  "description": "FinSight financial intelligence workspace and cash-flow digital twin for MSMEs",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test",
     "preview": "vite preview"
   },
   "dependencies": {

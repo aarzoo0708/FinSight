@@ -23,11 +23,14 @@ function ForecastTooltip({ active, payload }) {
 
 function CashFlowChart({ data }) {
   const maxBalance = Math.max(...data.map((point) => point.balance), 0)
+  const minBalance = Math.min(...data.map((point) => point.balance), 0)
   const yMax = Math.max(10000, Math.ceil(maxBalance / 10000) * 10000)
+  const yMin = minBalance < 0 ? Math.floor(minBalance / 10000) * 10000 : 0
+  const yTicks = Array.from({ length: 5 }, (_, index) => Math.round(yMin + ((yMax - yMin) / 4) * index))
   return (
     <section className="forecast-panel" aria-labelledby="forecast-title">
       <div className="panel-heading forecast-panel-heading">
-        <div><span className="section-kicker">CASH-FLOW FORECAST</span><h2 id="forecast-title">A month in motion</h2></div>
+        <div><span className="section-kicker">CASH-FLOW FORECAST</span><h2 id="forecast-title">Daily cash-flow outlook</h2></div>
         <span className="chart-horizon"><i /> BASELINE PROJECTION</span>
       </div>
       <p className="chart-description">Daily projected cash balance, based on expected payments and planned expenses.</p>
@@ -44,13 +47,13 @@ function CashFlowChart({ data }) {
               minTickGap={28}
             />
             <YAxis
-              domain={[0, yMax]}
-              tickFormatter={(value) => value === 0 ? '₹0' : `₹${Math.round(value / 1000)}k`}
+              domain={[yMin, yMax]}
+              tickFormatter={(value) => value === 0 ? '₹0' : `${value < 0 ? '−' : ''}₹${Math.round(Math.abs(value) / 1000)}k`}
               tick={{ fill: '#89948b', fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               width={48}
-              ticks={Array.from({ length: 5 }, (_, index) => Math.round((yMax / 4) * index))}
+              ticks={yTicks}
             />
             <ReferenceLine y={0} stroke="#bd9271" strokeWidth={1.2} />
             <Tooltip content={<ForecastTooltip />} cursor={{ stroke: '#bdc9bc', strokeDasharray: '3 4' }} />

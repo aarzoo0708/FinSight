@@ -1,0 +1,18 @@
+# Dependencies and local tooling
+node_modules/
+.vite/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Build and test output
+dist/
+coverage/
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp

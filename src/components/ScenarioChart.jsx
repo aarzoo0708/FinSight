@@ -13,7 +13,7 @@ function ScenarioTooltip({ active, payload }) {
   )
 }
 
-function ScenarioChart({ baseline, scenario, isScenarioSelected }) {
+function ScenarioChart({ baseline, scenario, isScenarioSelected = true, horizonDays = baseline.horizonDays ?? 30 }) {
   const data = baseline.forecast.map((point, index) => ({
     day: point.day,
     date: point.date,
@@ -31,7 +31,7 @@ function ScenarioChart({ baseline, scenario, isScenarioSelected }) {
   return (
     <section className="scenario-chart-panel" aria-labelledby="scenario-chart-title">
       <div className="scenario-chart-heading">
-        <div><span className="section-kicker">30-DAY CASH POSITION</span><h2 id="scenario-chart-title">Two paths, one decision</h2></div>
+        <div><span className="section-kicker">{horizonDays}-DAY CASH POSITION</span><h2 id="scenario-chart-title">Two paths, one decision</h2></div>
         <div className="scenario-legend"><span><i className="baseline-key" /> Baseline</span><span><i className="scenario-key" /> Your scenario</span></div>
       </div>
       <p className="scenario-chart-description">Projected closing cash by day. Move your cursor over the lines to compare balances.</p>

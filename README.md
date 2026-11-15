@@ -2,179 +2,138 @@
 
 ### See Beyond Today's Finances.
 
-**AI-Powered Financial Intelligence & Digital Twin for MSMEs**
+FinSight is a browser-based financial intelligence workspace for micro, small, and medium-sized businesses. It brings customer invoices, scheduled expenses, cash-flow forecasts, risk indicators, scenario simulations, and reports into one shared financial model.
 
-FinSight is a financial planning prototype that helps small businesses see how incoming payments and planned expenses may shape their cash position. Explore receivables, review a daily cash-flow projection, and test a few “what if” changes in an interactive scenario workspace.
+> Prototype for decision support and demonstration. Forecasts and risk indicators are estimates; this application is not connected to bank or accounting feeds.
 
-![React](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white) ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-ES%20modules-f7df1e?logo=javascript&logoColor=222) ![Recharts](https://img.shields.io/badge/Charts-Recharts-22b5bf) ![Status](https://img.shields.io/badge/Status-Demo%20prototype-789783)
+## The problem
 
-> **Explore three views:** [Overview](#application-routes) · [Receivables](#application-routes) · [Scenario Lab](#application-routes)
+Business owners often have records of what is owed and what is coming due, but limited visibility into how payment timing and scheduled costs affect near-term liquidity. A current balance by itself does not explain the cash position a few weeks from now.
 
----
+## The solution
 
-## Overview
+FinSight keeps customer, invoice, payment, expense, and transaction records in a shared browser workspace. Deterministic services calculate receivable balances, expense commitments, daily cash projections, customer indicators, insights, and scenario results. The Financial Digital Twin lets a user compare selected hypothetical assumptions with the baseline projection without changing the underlying records.
 
-Micro, Small and Medium Enterprises (MSMEs) often make decisions with incomplete visibility into when customer payments will arrive and how upcoming costs affect available cash. FinSight brings a sample business’s invoices and scheduled transactions into one interface, helping business owners and operators reason about near-term liquidity.
+## Intended users
 
-The experience is organized around three pillars:
+MSME owners and finance or operations staff who want a clear view of upcoming cash commitments and a lightweight way to explore possible decisions.
 
-- **Predict** – Identify potential invoice payment delays from the sample customer payment histories.
-- **Simulate** – See how selected timing and expense assumptions change the projected cash balance.
-- **Recommend** – Surface risk cues and scenario read-outs to help focus attention on possible next steps.
+## Modules
 
-## Application Preview
+- **Overview** — financial health summary, important alerts, performance snapshot, and shared forecast outlook.
+- **Cash Flow Intelligence** — selectable 30, 60, and 90-day forecast, projected daily balances, movement analysis, and financial timeline.
+- **Receivables** — invoice directory, linked balances and payments, rule-based risk indicators, and local reminder drafts.
+- **Customer Intelligence** — customer exposure, invoice relationships, and available payment-history indicators.
+- **Expense Intelligence** — scheduled commitments, category breakdowns, due dates, and supported payment status.
+- **Scenario Lab / Financial Digital Twin** — create and compare hypothetical cash-flow assumptions against a baseline.
+- **Insights & Actions** — traceable financial warnings, supporting figures, related records, and review status.
+- **Reports** — previews and CSV/PDF exports across seven report categories.
+- **Settings & Data** — workspace preferences, separate demo and user workspaces, CSV import, JSON backup/restore, and record exports.
 
-Screenshots below show the current FinSight demo experience.
+## Financial Digital Twin
 
-### Financial Overview
+The Scenario Lab starts with the same cash-flow baseline used by the workspace and applies hypothetical assumptions to a copy of the projection inputs. Scenario examples include payment delays, expense changes, purchases, hiring, loans, customer loss, and unexpected expenses. Users can inspect differences in projected closing cash, low points, and shortage dates. Simulation results remain labeled as simulated and do not become actual transactions.
 
-Review cash balances, expected movements, the cash-flow forecast, and upcoming risks at a glance.
+## Architecture
 
-<p align="center">
-  <img src="screenshots/overview.png.png" alt="FinSight financial overview dashboard" width="900">
-</p>
+```mermaid
+flowchart LR
+  Pages[Workspace pages] --> Services[Shared financial services]
+  Services --> Store[Central financial store]
+  Store --> Demo[Demo seed data]
+  Store --> Persistence[Browser localStorage]
+  Services --> Forecast[Cash-flow forecast]
+  Forecast --> Insights[Rule-based insights]
+  Forecast --> Twin[Scenario projection on copied assumptions]
+  Services --> Reports[Report previews and exports]
+```
 
-### Receivables Intelligence
+Application navigation uses URL hash routes. `src/App.jsx` selects the page, while shared data structures and storage live in `src/data/financialStore.js`, demo records in `src/data/demoData.js`, and reusable calculations in `src/utils/financialServices.js` and related utility modules.
 
-Search and filter open invoices, inspect payment-risk estimates, and review customer payment history.
+## Technology
 
-<p align="center">
-  <img src="screenshots/receivables.png.png" alt="FinSight receivables intelligence and invoice risk view" width="900">
-</p>
+- React 19
+- Vite 8
+- JavaScript ES modules
+- Recharts
+- Lucide React
+- Browser `localStorage` for local persistence
+- Node.js built-in test runner
 
-### Scenario Lab
+## Run locally
 
-Adjust cash-flow assumptions and compare the resulting projection with the baseline.
-
-<p align="center">
-  <img src="screenshots/scenario-lab.png.png" alt="FinSight Scenario Lab baseline and scenario comparison" width="900">
-</p>
-
-## Problem Statement
-
-MSMEs can face several connected financial pressures:
-
-- Customer invoices may be paid later than their agreed due dates.
-- Expenses such as materials, payroll, rent, and equipment purchases can vary or fall due at inconvenient times.
-- A current account balance alone offers limited visibility into the cash needed over the coming weeks.
-- Payment delays and clustered expenses can create unexpected liquidity shortages.
-- Without a way to compare assumptions, it is difficult to understand the likely cash impact of a decision before making it.
-
-## Our Solution
-
-FinSight combines a receivables view with a transaction-based cash-flow projection and an interactive financial digital twin:
-
-- **Invoice payment-risk intelligence** applies transparent rules to sample customer payment history to estimate risk and expected payment timing.
-- **Cash-flow forecasting** recalculates a daily balance from the starting cash balance and scheduled inflows and outflows.
-- **Financial digital twin** uses the same sample transaction plan as a baseline for exploring adjusted assumptions.
-- **What-if simulation** models a delayed largest receipt, higher operating expenses, and a postponed planned purchase.
-- **Financial recommendations and cues** are presented as rule-based risk indicators, alerts, and scenario explanations—not as individualized professional advice.
-
-## Key Features
-
-The following are implemented in the current prototype:
-
-- **Financial overview dashboard** with current cash, expected inflows and outflows, projected closing balance, and an outlook summary.
-- **Cash-flow forecasting** with daily projected balances and selectable 7-, 14-, or 30-day dashboard views.
-- **Invoice payment-risk indicators** with low, medium, and high risk levels, estimated payment dates, overdue status, and explanations.
-- **Receivables management** for reviewing open sample invoices, searching by customer or invoice ID, and filtering by risk.
-- **Customer payment-risk insights** showing payment history, average delay, predicted delay, and the rule behind the risk label.
-- **Interactive scenario simulation** with controls to delay the largest expected receipt by 15 days, increase operating outflows by 0–40%, or move a planned purchase beyond the 30-day window.
-- **Baseline versus scenario comparison** with closing balances, projected daily cash paths, low-point and shortfall summaries, and a reset control.
-- **Financial alerts and recommendations** in the form of upcoming risk items, action links, scenario read-outs, and generated invoice reminder text that users can copy.
-
-### Implementation status
-
-These features operate on fixed illustrative data for the demo business **Nila Homeware**. Invoice risk is estimated with hand-coded thresholds against the supplied payment history. The current project does not include a trained machine-learning model, live accounting or banking connections, a backend, or persistent business records. The interface labels predictions and scenarios as illustrative prototype outputs. Further integrations or predictive models should be treated as future work unless implemented separately.
-
-## The Financial Digital Twin
-
-The Scenario Lab is FinSight’s signature concept: a lightweight, interactive model of the demo business’s near-term cash position. It begins with a baseline built from the starting cash balance, expected invoice receipts, and planned expenses. Each adjustment recalculates the daily balance from that same transaction plan, then compares the selected scenario with the baseline.
-
-In the current implementation, users can explore three assumptions:
-
-1. Move the largest expected customer receipt back by 15 days.
-2. Increase operating outflows by a chosen percentage, from 0% to 40%.
-3. Postpone a planned equipment purchase until after the 30-day forecast.
-
-The comparison shows how those assumptions affect the closing balance, the lowest balance during the horizon, and whether the modeled balance falls below zero. This is an illustrative decision-support model using bundled sample transactions; it does not connect to live books or automatically learn from business activity.
-
-## Application Routes
-
-Navigation is handled with URL hash routes:
-
-| Route | View | What it contains |
-| --- | --- | --- |
-| `#overview` | Overview | Cash summary, forecast chart, outlook, upcoming risks, and quick links. This is the default route. |
-| `#receivables` | Receivables | Searchable and filterable invoice list with risk estimates and invoice detail panel. |
-| `#scenario-lab` | Scenario Lab | Scenario controls, baseline comparison, chart, and explanatory read-out. |
-
-For example, while the development server is running, open `http://localhost:5173/#scenario-lab` to view the Scenario Lab.
-
-## Technology Stack
-
-- **React 19** for the interface and component model.
-- **Vite 8** for local development and production builds.
-- **JavaScript ES modules** for application logic.
-- **Recharts** for cash-flow and scenario charts.
-- **Lucide React** for interface icons.
-- **CSS** in `src/styles/` for the responsive dashboard styling.
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js compatible with the installed Vite version.
-- npm.
-
-### Install and run
+Requirements: a Node.js version compatible with Vite 8 and npm.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Vite prints the local URL in the terminal (typically `http://localhost:5173`). To create and serve a production build:
+Open the local URL printed by Vite. Production build and preview:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## Project Structure
+Automated checks:
 
-```text
-.
-├── index.html                 # Document metadata and application mount point
-├── package.json               # Scripts and dependencies
-├── vite.config.js             # Vite and React plugin configuration
-└── src/
-    ├── App.jsx                # Hash-based page selection
-    ├── main.jsx               # React entry point
-    ├── components/            # Shared navigation, cards, badges, and charts
-    ├── data/demoData.js       # Nila Homeware sample invoices and transactions
-    ├── pages/                 # Overview, Receivables, and Scenario Lab
-    ├── styles/                # Global and dashboard styles
-    └── utils/                 # Payment estimates, cash simulation, and formatting
+```bash
+npm test
 ```
 
-## Data and Limitations
+There is no environment file or API key required. The application has no backend; workspace data is stored in the current browser profile.
 
-- All business, invoice, payment-history, cash, and expense values are bundled demo data defined in `src/data/demoData.js`.
-- The payment-risk estimator uses explicit late-rate and average-delay thresholds in `src/utils/paymentPrediction.js`; it is not a trained or validated AI/ML model.
-- Cash projections are deterministic calculations over the included scheduled events and selected scenario assumptions.
-- Scenario changes and follow-up status are held in page state; there is no backend or durable storage in this project.
-- Generated reminder text is a local draft for copying. The app does not send reminders or contact customers.
-- Outputs are for demonstration and exploration, not audited forecasts or financial advice.
+## Demo journey
 
-## Available Scripts
+Use the clearly labeled **DEMO WORKSPACE** to explore the existing example business without entering data. Demo records are read-only. To manage records, use **Settings & Data → Start your workspace**; the new user workspace starts separately and empty. Switch back to the demo from Settings at any time. See [the 5–7 minute demo walkthrough](docs/DEMO_WALKTHROUGH.md).
 
-| Command | Description |
+## Screenshots
+
+These screenshots were captured from the running application using the sample workspace. The former preview images are retained separately in `screenshots/archive/`.
+
+| Overview | Cash Flow Intelligence |
 | --- | --- |
-| `npm run dev` | Start the Vite development server. |
-| `npm run build` | Build the production assets into `dist/`. |
-| `npm run preview` | Serve the production build locally. |
+| ![Overview desktop capture](screenshots/current/overview.png) | ![Cash Flow desktop capture](screenshots/current/cash-flow.png) |
 
----
+| Receivables | Financial Digital Twin |
+| --- | --- |
+| ![Receivables desktop capture](screenshots/current/receivables.png) | ![Scenario Lab desktop capture](screenshots/current/scenario-lab.png) |
 
-*FinSight — See Beyond Today's Finances.*
+Additional desktop captures are available for [Customers](screenshots/current/customers.png), [Expenses](screenshots/current/expenses.png), [Insights](screenshots/current/insights.png), [Reports](screenshots/current/reports.png), and [Settings](screenshots/current/settings.png). The [390px mobile Overview](screenshots/current/overview-mobile-390.png), [Expense page](screenshots/current/expenses-mobile-390.png), and [Expense table and controls](screenshots/current/expenses-table-mobile-390.png) captures show responsive layouts.
+
+## Calculation and data transparency
+
+- Invoice remaining balances equal the invoice amount less linked recorded payments; paid invoices contribute no outstanding receivable.
+- Scheduled invoice receipts use open balances and the existing risk/timing rules. They are estimates, not confirmed payments.
+- Expense schedules and dated actual transactions are incorporated through shared calculation services. Linked events are reconciled to avoid counting the same record twice.
+- The bundled demo has no recorded payment records or dated actual transactions. Its historical cash activity is therefore unavailable; demo cash movement is a forward-looking illustration based on sample invoice due dates and expense schedules.
+- Payment reliability and risk categories are deterministic rule-based indicators using supplied aggregate demo-history summaries and configured thresholds. There is no trained ML model, model accuracy claim, or automated learning.
+- Scenario results use copied assumptions and do not alter historical records.
+- Reports expose source availability and avoid fabricating missing historical activity. Display currency defaults to INR; currency conversion is not implemented.
+
+## Project structure
+
+```text
+src/
+  components/       Shared navigation, cards, charts, and timelines
+  data/             Demo records and central financial store
+  pages/            Overview and eight intelligence/workspace pages
+  styles/           Global and module styles
+  utils/            Financial calculations, simulation, reporting, formatting
+tests/              Financial, reporting, scenario, and data-management tests
+docs/               Demo walkthrough
+screenshots/         Archived legacy captures; current captures pending
+```
+
+## Limitations and future work
+
+- Data is local to one browser and is not synchronized, encrypted by the app, or shared between users/devices.
+- There are no bank, accounting, email, or payment-processor integrations.
+- Demo payment-history summaries are illustrative and distinct from recorded payments.
+- Forecasts depend on the records and assumptions available in the workspace; they are not audited cash-flow statements or professional financial advice.
+- A future production version could add secure multi-user storage, accounting integrations, verified transaction imports, and validated forecasting methods.
+
+## Repository hygiene
+
+Use `npm ci` to install exactly the versions in `package-lock.json`. Do not commit local `.env` files, browser data, credentials, `node_modules`, or temporary captures. Review the Git diff before submission; this workspace is not configured for automatic publishing.

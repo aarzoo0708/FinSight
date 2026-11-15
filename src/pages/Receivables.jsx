@@ -1,134 +1,69 @@
-import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, ArrowDownToLine, Check, ChevronRight, Clipboard, Clock3, FileText, Search, X } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { AlertCircle, ArrowDownToLine, Check, ChevronRight, Clipboard, Clock3, FileText, Pencil, Plus, Search, X } from 'lucide-react'
 import Sidebar from '../components/Sidebar.jsx'
 import RiskBadge from '../components/RiskBadge.jsx'
 import StatCard from '../components/StatCard.jsx'
-import { demoBusiness, invoiceProjections, receivablesDemo } from '../data/demoData.js'
+import { deleteInvoiceRecord, getFinancialData, getInvoiceRiskIndicators, recordInvoicePayment, saveInvoiceRecord } from '../data/financialStore.js'
 import { formatINR } from '../utils/formatters.js'
-import { formatInvoiceDate, getOutstandingSummary, parseLocalDate } from '../utils/receivables.js'
+import { formatInvoiceDate, parseLocalDate } from '../utils/receivables.js'
+import { calculateReceivablesSummary } from '../utils/financialServices.js'
+
+function InvoiceForm({ invoice, customers, onClose, onSave }) {
+  const [fields, setFields] = useState(() => invoice ? { customerId: invoice.customerId, amount: String(invoice.amount), issueDate: invoice.issueDate, dueDate: invoice.dueDate } : { customerId: customers[0]?.id ?? '', amount: '', issueDate: '', dueDate: '' })
+  const [error, setError] = useState('')
+  const submit = (event) => { event.preventDefault(); try { onSave(fields, invoice?.id ?? null) } catch (failure) { setError(failure.message) } }
+  return <div className="expense-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="expense-form-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-form-title"><div className="expense-modal-heading"><div><span className="section-kicker">INVOICE RECORD</span><h2 id="invoice-form-title">{invoice ? 'Edit invoice' : 'Create invoice'}</h2></div><button type="button" className="expense-icon-button" onClick={onClose} aria-label="Close invoice form"><X size={17} /></button></div><form className="expense-form" onSubmit={submit}><label>Customer<select required value={fields.customerId} onChange={(event) => setFields({ ...fields, customerId: event.target.value })}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.id}</option>)}</select></label><label>Invoice amount (INR)<input required min="0.01" step="0.01" type="number" value={fields.amount} onChange={(event) => setFields({ ...fields, amount: event.target.value })} /></label><label>Issue date<input required type="date" value={fields.issueDate} onChange={(event) => setFields({ ...fields, issueDate: event.target.value })} /></label><label>Due date<input required type="date" value={fields.dueDate} onChange={(event) => setFields({ ...fields, dueDate: event.target.value })} /></label>{error && <p className="expense-form-error" role="alert">{error}</p>}<p className="expense-form-note">Status is derived from linked payments. The invoice amount cannot be reduced below recorded payments.</p><div className="expense-form-actions"><button type="button" className="expense-secondary-button" onClick={onClose}>Cancel</button><button type="submit" className="expense-primary-button">{invoice ? 'Save changes' : 'Create invoice'}</button></div></form></section></div>
+}
+
+function PaymentForm({ invoice, onClose, onSave }) {
+  const [amount, setAmount] = useState(String(invoice.remainingAmount))
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [error, setError] = useState('')
+  const submit = (event) => { event.preventDefault(); try { onSave(amount, date) } catch (failure) { setError(failure.message) } }
+  return <div className="expense-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="expense-form-modal" role="dialog" aria-modal="true" aria-labelledby="payment-form-title"><div className="expense-modal-heading"><div><span className="section-kicker">PAYMENT RECEIPT</span><h2 id="payment-form-title">Record invoice payment</h2></div><button type="button" className="expense-icon-button" onClick={onClose} aria-label="Close payment form"><X size={17} /></button></div><form className="expense-form" onSubmit={submit}><p className="expense-form-note">{invoice.id} · Outstanding balance {formatINR(invoice.remainingAmount)}.</p><label>Amount received (INR)<input required min="0.01" max={invoice.remainingAmount} step="0.01" type="number" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><label>Payment date<input required type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>{error && <p className="expense-form-error" role="alert">{error}</p>}<div className="expense-form-actions"><button type="button" className="expense-secondary-button" onClick={onClose}>Cancel</button><button type="submit" className="expense-primary-button">Save payment</button></div></form></section></div>
+}
 
 function Receivables() {
+  const [financialData, setFinancialData] = useState(() => getFinancialData())
   const [query, setQuery] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
+  const [sort, setSort] = useState('due-asc')
   const [selectedId, setSelectedId] = useState(null)
-  const [followedUp, setFollowedUp] = useState({})
+  const [invoiceForm, setInvoiceForm] = useState(null)
+  const [paymentForm, setPaymentForm] = useState(null)
+  const [message, setMessage] = useState('')
   const [reminder, setReminder] = useState('')
   const [copyStatus, setCopyStatus] = useState('')
   const reminderRef = useRef(null)
-  useEffect(() => {
-    if (!selectedId) return undefined
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setSelectedId(null) }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [selectedId])
-  const summary = getOutstandingSummary(invoiceProjections)
-  const invoices = invoiceProjections
-  const filteredInvoices = invoices.filter(({ customer, id, prediction }) => {
-    const matchesQuery = `${customer} ${id}`.toLowerCase().includes(query.trim().toLowerCase())
-    return matchesQuery && (riskFilter === 'all' || prediction.risk === riskFilter)
-  })
+  const invoices = useMemo(() => getInvoiceRiskIndicators(financialData), [financialData])
+  const summary = useMemo(() => calculateReceivablesSummary(financialData), [financialData])
+  const visibleInvoices = useMemo(() => invoices
+    .filter((invoice) => `${invoice.customer} ${invoice.id}`.toLowerCase().includes(query.trim().toLowerCase()) && (riskFilter === 'all' || invoice.prediction.risk === riskFilter))
+    .sort((a, b) => sort === 'amount-desc'
+      ? b.remainingAmount - a.remainingAmount
+      : sort === 'risk-desc'
+        ? ({ high: 0, medium: 1, low: 2, unrated: 3 }[a.prediction.risk] - { high: 0, medium: 1, low: 2, unrated: 3 }[b.prediction.risk])
+        : String(a.dueDate).localeCompare(String(b.dueDate))), [invoices, query, riskFilter, sort])
   const selectedInvoice = invoices.find((invoice) => invoice.id === selectedId)
-
-  const markFollowedUp = () => {
-    setFollowedUp((current) => ({ ...current, [selectedId]: !current[selectedId] }))
-  }
-
-  const generateReminder = () => {
-    setReminder(`Hello ${selectedInvoice.customer},\n\nA quick, friendly reminder that invoice ${selectedInvoice.id} for ${formatINR(selectedInvoice.amount)} is due on ${formatInvoiceDate(parseLocalDate(selectedInvoice.dueDate))}. Please let us know if you need a copy of the invoice or have any questions.\n\nThank you,\nNila Homeware`)
-    setCopyStatus('')
-  }
-
-  const copyReminder = async () => {
-    try {
-      await navigator.clipboard.writeText(reminder)
-      setCopyStatus('Reminder copied')
-    } catch {
-      reminderRef.current?.focus()
-      reminderRef.current?.select()
-      setCopyStatus('Select and copy the reminder text')
-    }
-  }
-
-  return (
-    <div className="app-layout">
-      <Sidebar activePage="receivables" />
-      <div className="main-column">
-        <main className="content-area receivables-content" aria-labelledby="receivables-title">
-          <header className="receivables-header">
-            <div>
-              <span className="section-kicker">{demoBusiness.workspaceLabel} <span>·</span> INVOICE INTELLIGENCE</span>
-              <h1 id="receivables-title">Receivables intelligence</h1>
-              <p>Know which payments need your attention.</p>
-            </div>
-            <div className="prediction-note"><span className="prediction-note-dot" /><span className="demo-data-inline">DEMO DATA</span><span>Illustrative prototype estimates</span></div>
-          </header>
-
-          <section className="receivables-summary" aria-label="Receivables summary">
-            <StatCard icon={ArrowDownToLine} label="Total outstanding" value={formatINR(summary.totalOutstanding)} note={`${receivablesDemo.invoices.length} open invoices`} tone="sage" />
-            <StatCard icon={AlertCircle} label="High-risk receivables" value={`${summary.highRiskCount} invoices`} note="Based on payment history" tone="peach" />
-            <StatCard icon={Clock3} label="Overdue invoices" value={`${summary.overdueCount} invoice${summary.overdueCount === 1 ? '' : 's'}`} note="Past the agreed due date" tone="butter" />
-          </section>
-
-          <section className="invoice-workspace" aria-labelledby="invoice-list-title">
-            <div className="invoice-toolbar">
-              <div className="invoice-list-heading"><span className="section-kicker">COLLECTIONS DESK</span><h2 id="invoice-list-title">Open invoices <span>{filteredInvoices.length}</span></h2></div>
-              <div className="invoice-filters">
-                <label className="invoice-search"><Search size={16} strokeWidth={1.8} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customer or invoice" aria-label="Search invoices" /></label>
-                <label className="risk-filter-label"><span>Risk</span><select aria-label="Filter by risk level" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}><option value="all">All levels</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
-              </div>
-            </div>
-
-            <div className="invoice-table-scroll">
-              <table className="invoice-table">
-                <thead><tr><th>Customer</th><th>Invoice ID</th><th>Amount</th><th>Expected payment</th><th>Predicted delay</th><th>Predicted status</th><th>Risk level</th><th>Action</th></tr></thead>
-                <tbody>
-                  {filteredInvoices.map((invoice) => (
-                    <tr className={`invoice-row${invoice.prediction.risk === 'high' ? ' invoice-row-high-risk' : ''}`} key={invoice.id} onClick={() => { setSelectedId(invoice.id); setReminder(''); setCopyStatus('') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(invoice.id); setReminder(''); setCopyStatus('') } }} tabIndex={0} aria-label={`View details for ${invoice.customer}, ${invoice.id}`}>
-                      <td className="customer-cell"><span className={`customer-initial ${invoice.prediction.risk}`}>{invoice.customer.slice(0, 1)}</span><strong>{invoice.customer}</strong></td>
-                      <td className="invoice-id-cell">{invoice.id}</td>
-                      <td className="amount-cell">{formatINR(invoice.amount)}</td>
-                      <td className="date-cell">{formatInvoiceDate(invoice.prediction.expectedDate)}</td>
-                      <td className="delay-cell">{invoice.prediction.predictedDelayDays === 0 ? 'On terms' : `${invoice.prediction.predictedDelayDays} days late`}</td>
-                      <td><span className={`prediction-status status-${invoice.prediction.risk}${invoice.prediction.isOverdue ? ' status-overdue' : ''}`}>{invoice.prediction.status}</span></td>
-                      <td><RiskBadge kind={invoice.prediction.risk} /></td>
-                      <td><button className="row-action" type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(invoice.id); setReminder(''); setCopyStatus('') }}>Details <ChevronRight size={14} /></button></td>
-                    </tr>
-                  ))}
-                  {!filteredInvoices.length && <tr><td className="empty-invoices" colSpan="8">No invoices match those filters. Try a different search or risk level.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-            <div className="table-footnote"><span><i /> Payment risk is estimated from prior payment patterns.</span><span>{filteredInvoices.length} of {invoices.length} invoices shown</span></div>
-          </section>
-
-          <div className="receivables-disclaimer"><FileText size={14} strokeWidth={1.7} /><p><strong>About these predictions</strong> Estimates use the sample payment history shown in each invoice profile. They are illustrative prototype outputs, not verified machine-learning predictions.</p></div>
-        </main>
-      </div>
-
-      {selectedInvoice && (
-        <div className="detail-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null) }}>
-          <aside className="invoice-detail-panel" role="dialog" aria-modal="true" aria-labelledby="detail-title">
-            <div className="detail-topline"><span className="section-kicker">RECEIVABLE PROFILE</span><button type="button" className="detail-close" aria-label="Close invoice details" onClick={() => setSelectedId(null)}><X size={18} /></button></div>
-            <div className="detail-customer"><span className={`customer-initial large ${selectedInvoice.prediction.risk}`}>{selectedInvoice.customer.slice(0, 1)}</span><div><h2 id="detail-title">{selectedInvoice.customer}</h2><span>{selectedInvoice.id}</span></div></div>
-            <div className="detail-status-row"><RiskBadge kind={selectedInvoice.prediction.risk} /><span className={`prediction-status status-${selectedInvoice.prediction.risk}${selectedInvoice.prediction.isOverdue ? ' status-overdue' : ''}`}>{selectedInvoice.prediction.status}</span></div>
-            <div className="detail-amount-block"><span>INVOICE AMOUNT</span><strong>{formatINR(selectedInvoice.amount)}</strong><small>Due {formatInvoiceDate(parseLocalDate(selectedInvoice.dueDate))}</small></div>
-            <div className="detail-facts">
-              <div className="predicted-delay-fact"><span>Predicted delay</span><strong>{selectedInvoice.prediction.predictedDelayDays === 0 ? 'On agreed terms' : `${selectedInvoice.prediction.predictedDelayDays} days after due date`}</strong><small>Estimated payment: {formatInvoiceDate(selectedInvoice.prediction.expectedDate)}</small></div>
-              <div><span>Customer payment history</span><strong>{selectedInvoice.paymentHistory.paidLate} late of {selectedInvoice.paymentHistory.invoicesPaid} invoices</strong><small>Average delay {selectedInvoice.paymentHistory.averageDaysLate} days</small></div>
-              <div><span>Estimated payment date</span><strong>{formatInvoiceDate(selectedInvoice.prediction.expectedDate)}</strong></div>
-            </div>
-            <div className={`risk-explanation explanation-${selectedInvoice.prediction.risk}`}><span className="section-kicker">WHY THIS RISK LEVEL</span><p>{selectedInvoice.prediction.riskExplanation}</p></div>
-            <p className="model-explanation">Prototype rule: high risk requires at least 3 recorded payments and a late-payment rate of {Math.round(receivablesDemo.predictionModel.highLateRate * 100)}% or more, or an average delay of {receivablesDemo.predictionModel.highAverageDelayDays}+ days. Medium risk starts at {Math.round(receivablesDemo.predictionModel.mediumLateRate * 100)}% late or {receivablesDemo.predictionModel.mediumAverageDelayDays}+ average delay days.</p>
-            <div className="detail-actions">
-              <button type="button" className={`followup-button${followedUp[selectedInvoice.id] ? ' is-followed' : ''}`} onClick={markFollowedUp}>{followedUp[selectedInvoice.id] ? <><Check size={15} /> Follow-up recorded</> : <>Mark as followed up</>}</button>
-              <button type="button" className="reminder-button" onClick={generateReminder}>Generate reminder</button>
-            </div>
-            {reminder && <div className="reminder-draft"><div className="reminder-draft-heading"><span className="section-kicker">REMINDER DRAFT</span><button type="button" aria-label="Clear reminder" onClick={() => setReminder('')}><X size={15} /></button></div><textarea ref={reminderRef} readOnly value={reminder} aria-label="Generated payment reminder" /><button type="button" className="copy-reminder" onClick={copyReminder}><Clipboard size={14} />{copyStatus || 'Copy message'}</button></div>}
-          </aside>
-        </div>
-      )}
-    </div>
-  )
+  const editInvoice = invoiceForm?.type === 'edit' ? invoices.find((invoice) => invoice.id === invoiceForm.id) : null
+  const saveInvoice = (fields, id) => { const next = saveInvoiceRecord(fields, id); setFinancialData(next); setInvoiceForm(null); setSelectedId(id ?? next.invoices.at(-1)?.id ?? null); setMessage(id ? 'Invoice changes saved.' : 'Invoice created.') }
+  const savePayment = (amount, date) => { const next = recordInvoicePayment(paymentForm.id, amount, date); setFinancialData(next); setPaymentForm(null); setSelectedId(paymentForm.id); setMessage(`Payment of ${formatINR(amount)} recorded.`) }
+  const deleteInvoice = () => { if (!selectedInvoice || !window.confirm(`Delete ${selectedInvoice.id}? This is allowed only when it has no payment or transaction history.`)) return; try { setFinancialData(deleteInvoiceRecord(selectedInvoice.id)); setSelectedId(null); setMessage('Invoice deleted.') } catch (failure) { setMessage(failure.message) } }
+  const createReminder = () => { if (!selectedInvoice) return; setReminder(`Hello ${selectedInvoice.customer},\n\nA friendly reminder that invoice ${selectedInvoice.id} for ${formatINR(selectedInvoice.remainingAmount)} remains outstanding. Its due date is ${selectedInvoice.dueDate}. Please let us know if you need any details.\n\nThank you.`); setCopyStatus(''); requestAnimationFrame(() => reminderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })) }
+  const copyReminder = async () => { try { await navigator.clipboard.writeText(reminder); setCopyStatus('Copied') } catch { setCopyStatus('Copy unavailable — select the draft text.') } }
+  return <div className="app-layout"><Sidebar activePage="receivables" /><div className="main-column"><main className="content-area receivables-content" aria-labelledby="receivables-title">
+    <header className="receivables-header"><div><span className="section-kicker">{financialData.business.workspaceLabel} · INVOICE INTELLIGENCE</span><h1 id="receivables-title">Receivables intelligence</h1><p>Know which payments need your attention.</p></div><div><div className="prediction-note"><span className="prediction-note-dot" /><span className="demo-data-inline">{financialData.workspaceMode === 'demo' ? 'DEMO DATA' : 'WORKSPACE DATA'}</span><span>Risk labels are estimates</span></div><button type="button" className="expense-primary-button" disabled={financialData.workspaceMode !== 'user'} title={financialData.workspaceMode !== 'user' ? 'Start a separate workspace in Settings to manage records.' : undefined} onClick={() => setInvoiceForm({ type: 'add' })}><Plus size={15} />Create invoice</button></div></header>
+    {message && <div className="expense-inline-message" role="status">{message}<button type="button" aria-label="Dismiss message" onClick={() => setMessage('')}><X size={14} /></button></div>}
+    {financialData.workspaceMode !== 'user' && <p className="settings-workspace-notice">Demo invoices are read-only. Start your separate business workspace in Settings &amp; Data to manage invoices and payments.</p>}
+    <section className="receivables-summary" aria-label="Receivables summary"><StatCard icon={ArrowDownToLine} label="Total outstanding" value={formatINR(summary.totalOutstanding)} note={`${summary.openInvoiceCount} open invoices`} tone="sage" /><StatCard icon={AlertCircle} label="High-risk receivables" value={`${summary.highRiskCount} invoices`} note="Based on available history rules" tone="peach" /><StatCard icon={Clock3} label="Overdue invoices" value={`${summary.overdueCount} invoice${summary.overdueCount === 1 ? '' : 's'}`} note="Past due with remaining balance" tone="butter" /></section>
+    <section className="invoice-workspace" aria-labelledby="invoice-list-title"><div className="invoice-toolbar"><div className="invoice-list-heading"><span className="section-kicker">COLLECTIONS DESK</span><h2 id="invoice-list-title">Invoices <span>{visibleInvoices.length}</span></h2></div><div className="invoice-filters"><label className="invoice-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customer or invoice" aria-label="Search invoices" /></label><label className="risk-filter-label"><span>Risk</span><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)} aria-label="Filter by risk level"><option value="all">All levels</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="unrated">Unrated</option></select></label><label className="risk-filter-label"><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort invoices"><option value="due-asc">Due date</option><option value="amount-desc">Outstanding</option><option value="risk-desc">Risk level</option></select></label></div></div>
+      <div className="invoice-table-scroll"><table className="invoice-table"><thead><tr><th>Customer</th><th>Invoice</th><th>Amount</th><th>Outstanding</th><th>Due date</th><th>Status</th><th>Risk</th><th /></tr></thead><tbody>{visibleInvoices.map((invoice) => <tr key={invoice.id}><td>{invoice.customer}</td><td>{invoice.id}</td><td>{formatINR(invoice.amount)}</td><td><strong>{formatINR(invoice.remainingAmount)}</strong></td><td>{invoice.prediction.hasReliableDueDate ? formatInvoiceDate(parseLocalDate(invoice.dueDate)) : 'Unavailable'}</td><td>{invoice.remainingAmount <= 0 ? 'Paid' : invoice.paidAmount > 0 ? 'Partially paid' : invoice.prediction.isOverdue ? 'Overdue' : 'Open'}</td><td><RiskBadge kind={invoice.prediction.risk} /></td><td><button className="row-action" type="button" onClick={() => { setSelectedId(invoice.id); setReminder(''); setCopyStatus('') }}>Details <ChevronRight size={14} /></button></td></tr>)}{!visibleInvoices.length && <tr><td colSpan="8" className="customer-empty-state">No invoices match those filters.</td></tr>}</tbody></table></div>
+    </section>
+    {selectedInvoice && <div className="detail-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null) }}><aside className="invoice-detail-panel" role="dialog" aria-modal="true" aria-labelledby="detail-title"><div className="detail-topline"><span className="section-kicker">RECEIVABLE PROFILE</span><button type="button" className="detail-close" aria-label="Close invoice details" onClick={() => setSelectedId(null)}><X size={18} /></button></div><div className="detail-customer"><span className={`customer-initial large ${selectedInvoice.prediction.risk}`}>{selectedInvoice.customer.slice(0, 1)}</span><div><h2 id="detail-title">{selectedInvoice.customer}</h2><span>{selectedInvoice.id}</span></div></div><div className="detail-status-row"><RiskBadge kind={selectedInvoice.prediction.risk} /><span className={`prediction-status status-${selectedInvoice.prediction.risk}`}>{selectedInvoice.prediction.status}</span></div><div className="detail-amount-block"><span>INVOICE AMOUNT</span><strong>{formatINR(selectedInvoice.amount)}</strong><small>{formatINR(selectedInvoice.remainingAmount)} outstanding · due {selectedInvoice.dueDate}</small></div><div className="risk-explanation"><span className="section-kicker">WHY THIS RISK LEVEL</span><p>{selectedInvoice.prediction.riskExplanation}</p><small>Rule-based estimate from available aggregate payment-history indicators; no trained ML model is used.</small></div><section className="invoice-payment-history"><span className="section-kicker">RECORDED PAYMENT HISTORY</span>{financialData.payments.filter((payment) => payment.invoiceId === selectedInvoice.id).length ? financialData.payments.filter((payment) => payment.invoiceId === selectedInvoice.id).map((payment) => <p key={payment.id}>{payment.date} · {formatINR(payment.amount)} · {payment.id}</p>) : <p>No payments recorded for this invoice.</p>}</section><p className="model-explanation">Estimated payment dates and risk categories are planning indicators, not confirmed payment commitments.</p><div className="detail-actions"><button type="button" className="followup-button" disabled={financialData.workspaceMode !== 'user'} onClick={() => setInvoiceForm({ type: 'edit', id: selectedInvoice.id })}><Pencil size={14} />Edit invoice</button>{selectedInvoice.remainingAmount > 0 && <button type="button" className="reminder-button" disabled={financialData.workspaceMode !== 'user'} onClick={() => setPaymentForm(selectedInvoice)}>Record payment</button>}{!financialData.payments.some((payment) => payment.invoiceId === selectedInvoice.id) && !financialData.transactions.some((transaction) => transaction.invoiceId === selectedInvoice.id) && <button type="button" className="reminder-button" disabled={financialData.workspaceMode !== 'user'} onClick={deleteInvoice}>Delete invoice</button>}<button type="button" className="followup-button" onClick={() => setMessage(`Follow-up noted for ${selectedInvoice.id}.`)}><Check size={14} />Mark as followed up</button><button type="button" className="reminder-button" disabled={!selectedInvoice.prediction.hasReliableDueDate} onClick={createReminder}>Generate reminder</button></div>{reminder && <div className="reminder-draft" ref={reminderRef}><div className="reminder-draft-heading"><span className="section-kicker">REMINDER DRAFT</span><button type="button" aria-label="Clear reminder" onClick={() => setReminder('')}><X size={15} /></button></div><textarea readOnly value={reminder} aria-label="Generated payment reminder" /><button type="button" className="copy-reminder" onClick={copyReminder}><Clipboard size={14} />{copyStatus || 'Copy message'}</button></div>}</aside></div>}
+    {invoiceForm && <InvoiceForm invoice={editInvoice} customers={financialData.customers} onClose={() => setInvoiceForm(null)} onSave={saveInvoice} />}
+    {paymentForm && <PaymentForm invoice={paymentForm} onClose={() => setPaymentForm(null)} onSave={savePayment} />}
+    <p className="customer-profile-footnote"><FileText size={13} /> Expected collections are estimates. Recorded payment history is only shown when present in the shared store.</p>
+  </main></div></div>
 }
 
 export default Receivables

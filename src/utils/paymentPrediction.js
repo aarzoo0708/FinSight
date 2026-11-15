@@ -1,24 +1,33 @@
 export function estimatePayment(invoice, model, asOf) {
-  const { invoicesPaid, paidLate, averageDaysLate } = invoice.paymentHistory
+  const history = invoice.paymentHistory
+  const invoicesPaid = Number.isFinite(history?.invoicesPaid) ? history.invoicesPaid : 0
+  const paidLate = Number.isFinite(history?.paidLate) ? history.paidLate : 0
+  const averageDaysLate = Number.isFinite(history?.averageDaysLate) ? history.averageDaysLate : 0
   const lateRate = invoicesPaid ? paidLate / invoicesPaid : 0
-  let risk = 'low'
+  let risk = invoicesPaid ? 'low' : 'unrated'
   if (invoicesPaid >= 3 && (lateRate >= model.highLateRate || averageDaysLate >= model.highAverageDelayDays)) risk = 'high'
-  else if (lateRate >= model.mediumLateRate || averageDaysLate >= model.mediumAverageDelayDays) risk = 'medium'
+  else if (invoicesPaid && (lateRate >= model.mediumLateRate || averageDaysLate >= model.mediumAverageDelayDays)) risk = 'medium'
 
-  const predictedDelayDays = risk === 'low' ? 0 : Math.max(1, Math.round(averageDaysLate))
-  const dueDate = parseSampleDate(invoice.dueDate)
+  const predictedDelayDays = ['low', 'unrated'].includes(risk) ? 0 : Math.max(1, Math.round(averageDaysLate))
+  const dueDateValue = String(invoice.dueDate ?? '')
+  const dueDateParts = dueDateValue.split('-').map(Number)
+  const parsedDueDate = parseSampleDate(dueDateValue)
+  const hasReliableDueDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDateValue) && !Number.isNaN(parsedDueDate.getTime()) && parsedDueDate.getFullYear() === dueDateParts[0] && parsedDueDate.getMonth() === dueDateParts[1] - 1 && parsedDueDate.getDate() === dueDateParts[2]
+  const dueDate = hasReliableDueDate ? parsedDueDate : null
   const expectedDate = new Date(dueDate)
-  expectedDate.setDate(expectedDate.getDate() + predictedDelayDays)
+  if (dueDate) expectedDate.setDate(expectedDate.getDate() + predictedDelayDays)
   const today = startOfDay(asOf)
-  const isOverdue = dueDate < today
-  const status = isOverdue ? 'Overdue' : risk === 'high' ? 'Likely delayed' : risk === 'medium' ? 'Possible delay' : 'On-time expected'
+  const isOverdue = Boolean(dueDate && dueDate < today)
+  const status = isOverdue ? 'Overdue' : risk === 'high' ? 'Likely delayed' : risk === 'medium' ? 'Possible delay' : risk === 'unrated' ? 'Payment history unavailable' : 'On-time expected'
   const riskExplanation = risk === 'high'
-    ? `High payment risk: This customer has paid ${paidLate} of its last ${invoicesPaid} invoices late, averaging ${averageDaysLate} days beyond terms.`
+    ? `High payment risk: Illustrative history records ${paidLate} late payments among ${invoicesPaid} invoices (${Math.round(lateRate * 100)}%), with an average ${averageDaysLate}-day delay. This meets the configured high-risk threshold; review the open balance and confirm expected timing with the customer.`
     : risk === 'medium'
-      ? `Medium payment risk: ${paidLate} of ${invoicesPaid} previous invoices were late, with an average delay of ${averageDaysLate} days.`
-      : `Low payment risk: ${invoicesPaid - paidLate} of ${invoicesPaid} previous invoices were paid on time, with an average delay of ${averageDaysLate} day${averageDaysLate === 1 ? '' : 's'}.`
+      ? `Medium payment risk: Illustrative history records ${paidLate} late payments among ${invoicesPaid} invoices (${Math.round(lateRate * 100)}%), with an average ${averageDaysLate}-day delay. This meets a configured medium-risk threshold; allow for timing variance when planning receipt of the open balance.`
+      : risk === 'low'
+        ? `Low payment risk: Illustrative history records ${invoicesPaid - paidLate} payments not marked late among ${invoicesPaid} invoices, with an average ${averageDaysLate}-day delay. No configured medium or high threshold is met; continue monitoring the due date.`
+        : 'Risk is unrated because no usable payment-history summary is available. The due date can support scheduling, but this record does not support a payment-risk classification.'
 
-  return { risk, lateRate, predictedDelayDays, expectedDate, isOverdue, status, riskExplanation }
+  return { risk, lateRate, predictedDelayDays, expectedDate: dueDate ? expectedDate : null, isOverdue, hasReliableDueDate, status, riskExplanation }
 }
 
 export function parseSampleDate(value) {
